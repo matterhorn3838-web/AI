@@ -158,6 +158,8 @@
         <option value="qwen/qwen3.6-27b">qwen/qwen3.6-27b</option>
         <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
         <option value="openai/gpt-oss-20b">openai/gpt-oss-20b</option>
+        <option value="meta-llama/llama-prompt-guard-2-22m">meta-llama/llama-prompt-guard-2-22m</option>
+        <option value="meta-llama/llama-prompt-guard-2-86m">meta-llama/llama-prompt-guard-2-86m</option>
       </select>
     </div>
 
@@ -170,8 +172,10 @@
   </div>
 
   <script>
-    const API_KEY = atob('Z3NrX2lFdnhYR0gxNDR0bFkxNXdid3JXV0dkeWIzRllMSHpCd0hmNVhlOG9uYnVIc3ZXVnFHcnQ=');
-
+    // Encoded Base64 string for the new key
+    const ENCODED_KEY = 'Z3NrX0U4dmtUVFRsRHNDc29Kc2RUaE5BV0dkeWIzRllMExVwOE5rYXkyWDFPOGpoNURyQWNMQ28=';
+    const API_KEY = atob(ENCODED_KEY);
+    
     const TEXT_PROMPTS = [
       "What's on the agenda?",
       "What is on your mind?",
@@ -227,7 +231,7 @@
       const userHeader = document.createElement('div');
       userHeader.className = 'msg-user-header';
       userHeader.textContent = 'You';
-
+      
       const userBody = document.createElement('div');
       userBody.className = 'msg-body';
       userBody.textContent = text;
@@ -288,14 +292,14 @@
 
       } catch (err) {
         const elapsedSeconds = ((performance.now() - startTime) / 1000).toFixed(2);
-
+        
         // Remove failed user turn from history array
         if (conversationHistory.length > 0 && conversationHistory[conversationHistory.length - 1].role === 'user') {
           conversationHistory.pop();
         }
 
         thinkingSpan.textContent = `(${elapsedSeconds}s)`;
-
+        
         const errorBody = document.createElement('div');
         errorBody.className = 'msg-body';
         errorBody.textContent = `Error: ${err.message}`;
