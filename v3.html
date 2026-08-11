@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Official Models AI Studio</title>
+  <style>
+    :root {
+      --bg-dark: #131314;
+      --chat-bg: #1E1F22;
+      --accent-color: #A8C7FA;
+      --text-color: #E3E3E3;
+      --muted-text: #8E918F;
+      --ai-header: #7CACF8;
+      --border-color: #333538;
+      --card-bg: #282A2E;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .app-container {
+      width: 750px;
+      height: 850px;
+      background-color: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--border-color);
+    }
+
+    /* Top Bar & Token Setup */
+    .header {
+      padding: 15px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--chat-bg);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-title {
+      font-size: 13pt;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+
+    .model-select {
+      background-color: var(--bg-dark);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 9pt;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .api-key-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .key-input {
+      flex: 1;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 8.5pt;
+    }
+
+    /* Creation Mode Action Buttons */
+    .creation-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 20px;
+      background-color: var(--bg-dark);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .action-btn {
+      flex: 1;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 9pt;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover, .action-btn.active {
+      background-color: var(--accent-color);
+      color: #000000;
+      border-color: var(--accent-color);
+    }
+
+    /* Display Area */
+    .chat-display {
+      flex: 1;
+      background-color: var(--chat-bg);
+      margin: 15px 20px;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-y: auto;
+      font-size: 10pt;
+      line-height: 1.5;
+    }
+
+    .msg-user-header {
+      color: var(--accent-color);
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .msg-ai-header {
+      color: var(--ai-header);
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .msg-status {
+      color: var(--muted-text);
+      font-style: italic;
+      font-size: 9pt;
+    }
+
+    .msg-body {
+      color: var(--text-color);
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+    }
+
+    .media-preview {
+      max-width: 100%;
+      border-radius: 8px;
+      margin-top: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Input Controls */
+    .input-frame {
+      margin: 0 20px 20px 20px;
+      background-color: var(--chat-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+    }
+
+    .message-entry {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-color);
+      font-size: 10.5pt;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    .send-button {
+      background-color: var(--accent-color);
+      color: #000000;
+      font-size: 9pt;
+      font-weight: bold;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <div class="header">
+      <div class="header-top">
+        <div class="header-title">Official Publishers Studio</div>
+        <select id="modelSelect" class="model-select">
+          <optgroup label="NVIDIA">
+            <option value="nvidia/Cosmos3-Edge">nvidia/Cosmos3-Edge (Video World Model)</option>
+            <option value="nvidia/Nemotron-Mini-4B-Instruct">nvidia/Nemotron-Mini-4B-Instruct</option>
+          </optgroup>
+          <optgroup label="DeepSeek & Mistral">
+            <option value="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B">deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B</option>
+            <option value="mistralai/Mistral-7B-Instruct-v0.3">mistralai/Mistral-7B-Instruct-v0.3</option>
+          </optgroup>
+          <optgroup label="Meta & Google">
+            <option value="meta-llama/Llama-3.2-3B-Instruct">meta-llama/Llama-3.2-3B-Instruct</option>
+            <option value="google/gemma-2-2b-it">google/gemma-2-2b-it</option>
+          </optgroup>
+          <optgroup label="AliBaBa & OpenAI">
+            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct</option>
+            <option value="openai/whisper-small">openai/whisper-small (Audio-to-Text)</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="api-key-bar">
+        <input type="password" id="hfToken" class="key-input" placeholder="Optional: Paste Hugging Face User Access Token (hf_...)" />
+      </div>
+    </div>
+
+    <div class="creation-bar">
+      <button class="action-btn active" data-mode="text">📝 Text Generation</button>
+      <button class="action-btn" data-mode="image">🖼️ Image Creation</button>
+      <button class="action-btn" data-mode="audio">🎵 Audio Creation</button>
+      <button class="action-btn" data-mode="video">🎥 Video (Cosmos 3)</button>
+    </div>
+
+    <div id="chatDisplay" class="chat-display"></div>
+
+    <div class="input-frame">
+      <input type="text" id="messageEntry" class="message-entry" placeholder="Type prompt or query..." />
+      <button id="sendButton" class="send-button">Execute</button>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = "text";
+
+    const chatDisplay = document.getElementById('chatDisplay');
+    const messageEntry = document.getElementById('messageEntry');
+    const sendButton = document.getElementById('sendButton');
+    const modelSelect = document.getElementById('modelSelect');
+    const hfTokenInput = document.getElementById('hfToken');
+    const actionBtns = document.querySelectorAll('.action-btn');
+
+    // Handle Creation Mode Button Switching
+    actionBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        actionBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+        
+        if (currentMode === 'video') {
+          modelSelect.value = "nvidia/Cosmos3-Edge";
+        }
+        appendStatus(`Switched creation mode to: ${btn.textContent.trim()}`);
+      });
+    });
+
+    sendButton.addEventListener('click', handleExecute);
+    messageEntry.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleExecute(); });
+
+    async function handleExecute() {
+      const promptText = messageEntry.value.trim();
+      if (!promptText) return;
+
+      const selectedModel = modelSelect.value;
+      const userToken = hfTokenInput.value.trim();
+
+      appendMessage('You', `[${currentMode.toUpperCase()}] ${promptText}`, 'msg-user-header');
+      messageEntry.value = '';
+
+      const aiHeaderSpan = document.createElement('div');
+      aiHeaderSpan.className = 'msg-ai-header';
+      aiHeaderSpan.textContent = `Official Pipeline (${selectedModel}) `;
+
+      const statusSpan = document.createElement('span');
+      statusSpan.className = 'msg-status';
+      statusSpan.textContent = '(Requesting model API...)';
+      aiHeaderSpan.appendChild(statusSpan);
+
+      chatDisplay.appendChild(aiHeaderSpan);
+      scrollToBottom();
+
+      const startTime = performance.now();
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (userToken) headers["Authorization"] = `Bearer ${userToken}`;
+
+        let endpoint = `https://api-inference.huggingface.co/models/${selectedModel}`;
+        
+        // Mode Specific Overrides
+        if (currentMode === 'image' && !selectedModel.includes('diffusion')) {
+          endpoint = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5";
+        } else if (currentMode === 'audio' && !selectedModel.includes('musicgen')) {
+          endpoint = "https://api-inference.huggingface.co/models/facebook/musicgen-small";
+        } else if (currentMode === 'video') {
+          endpoint = "https://api-inference.huggingface.co/models/nvidia/Cosmos3-Edge";
+        }
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ inputs: promptText })
+        });
+
+        const elapsedSeconds = ((performance.now() - startTime) / 1000).toFixed(2);
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP Error ${response.status}`);
+        }
+
+        statusSpan.textContent = `(${elapsedSeconds}s)`;
+
+        // Handle Media vs Text Outputs
+        if (currentMode === 'image') {
+          const blob = await response.blob();
+          const imgUrl = URL.createObjectURL(blob);
+          const img = document.createElement('img');
+          img.src = imgUrl;
+          img.className = 'media-preview';
+          chatDisplay.appendChild(img);
+        } else if (currentMode === 'audio') {
+          const blob = await response.blob();
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.src = audioUrl;
+          audio.className = 'media-preview';
+          chatDisplay.appendChild(audio);
+        } else if (currentMode === 'video') {
+          const blob = await response.blob();
+          const videoUrl = URL.createObjectURL(blob);
+          const video = document.createElement('video');
+          video.controls = true;
+          video.autoplay = true;
+          video.src = videoUrl;
+          video.className = 'media-preview';
+          chatDisplay.appendChild(video);
+        } else {
+          // Text response handling
+          const data = await response.json();
+          let resultText = "";
+          if (Array.isArray(data) && data[0]?.generated_text) {
+            resultText = data[0].generated_text;
+          } else if (typeof data === 'object') {
+            resultText = data.text || JSON.stringify(data, null, 2);
+          } else {
+            resultText = String(data);
+          }
+
+          const body = document.createElement('div');
+          body.className = 'msg-body';
+          body.textContent = resultText;
+          chatDisplay.appendChild(body);
+        }
+
+      } catch (err) {
+        const elapsedSeconds = ((performance.now() - startTime) / 1000).toFixed(2);
+        statusSpan.textContent = `(${elapsedSeconds}s)`;
+
+        const errorBody = document.createElement('div');
+        errorBody.className = 'msg-body';
+        errorBody.textContent = `Execution Error: ${err.message}. (If model is cold-starting, try clicking Execute again in a few seconds).`;
+        chatDisplay.appendChild(errorBody);
+      }
+
+      scrollToBottom();
+    }
+
+    function appendMessage(sender, text, className) {
+      const header = document.createElement('div');
+      header.className = className;
+      header.textContent = sender;
+
+      const body = document.createElement('div');
+      body.className = 'msg-body';
+      body.textContent = text;
+
+      chatDisplay.appendChild(header);
+      chatDisplay.appendChild(body);
+      scrollToBottom();
+    }
+
+    function appendStatus(text) {
+      const div = document.createElement('div');
+      div.className = 'msg-status';
+      div.style.textAlign = 'center';
+      div.style.margin = '10px 0';
+      div.textContent = text;
+      chatDisplay.appendChild(div);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      chatDisplay.scrollTop = chatDisplay.scrollHeight;
+    }
+  </script>
+</body>
+</html>
