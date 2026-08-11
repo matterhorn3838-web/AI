@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Official Models - GitHub Pages AI Hub</title>
+  <style>
+    :root {
+      --bg-dark: #131314;
+      --chat-bg: #1E1F22;
+      --accent-color: #A8C7FA;
+      --text-color: #E3E3E3;
+      --muted-text: #8E918F;
+      --ai-header: #7CACF8;
+      --border-color: #333538;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .app-container {
+      width: 700px;
+      height: 750px;
+      background-color: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .header {
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header-title {
+      font-size: 13pt;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+
+    .model-select {
+      background-color: var(--chat-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 9pt;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .chat-display {
+      flex: 1;
+      background-color: var(--chat-bg);
+      margin: 15px 20px;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-y: auto;
+      font-size: 10pt;
+      line-height: 1.5;
+    }
+
+    .msg-user-header {
+      color: var(--accent-color);
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .msg-ai-header {
+      color: var(--ai-header);
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .msg-status {
+      color: var(--muted-text);
+      font-style: italic;
+      font-size: 9pt;
+    }
+
+    .msg-body {
+      color: var(--text-color);
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+    }
+
+    .input-frame {
+      margin: 0 20px 20px 20px;
+      background-color: var(--chat-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+    }
+
+    .message-entry {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-color);
+      font-size: 11pt;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    .send-button {
+      background-color: var(--accent-color);
+      color: #000000;
+      font-size: 9pt;
+      font-weight: bold;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .send-button:hover {
+      background-color: #7CACF8;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <div class="header">
+      <div class="header-title">Official Publishers AI (&lt;8B)</div>
+      <select id="modelSelect" class="model-select">
+        <optgroup label="NVIDIA">
+          <option value="nvidia/Nemotron-Mini-4B-Instruct">nvidia/Nemotron-Mini-4B-Instruct</option>
+          <option value="nvidia/Cosmos3-Edge">nvidia/Cosmos3-Edge (Video World Model)</option>
+        </optgroup>
+        <optgroup label="DeepSeek & Mistral">
+          <option value="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B">deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B</option>
+          <option value="mistralai/Mistral-7B-Instruct-v0.3">mistralai/Mistral-7B-Instruct-v0.3</option>
+        </optgroup>
+        <optgroup label="Meta & Google">
+          <option value="meta-llama/Llama-3.2-1B-Instruct">meta-llama/Llama-3.2-1B-Instruct</option>
+          <option value="google/gemma-2-2b-it">google/gemma-2-2b-it</option>
+        </optgroup>
+        <optgroup label="AliBaBa & OpenAI">
+          <option value="Qwen/Qwen2.5-0.5B-Instruct">Qwen/Qwen2.5-0.5B-Instruct</option>
+          <option value="openai/whisper-tiny">openai/whisper-tiny (Audio Speech)</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <div id="chatDisplay" class="chat-display"></div>
+
+    <div class="input-frame">
+      <input type="text" id="messageEntry" class="message-entry" placeholder="Type prompt or URL..." />
+      <button id="sendButton" class="send-button">Generate</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+
+    let activePipeline = null;
+    let loadedModelId = null;
+
+    const chatDisplay = document.getElementById('chatDisplay');
+    const messageEntry = document.getElementById('messageEntry');
+    const sendButton = document.getElementById('sendButton');
+    const modelSelect = document.getElementById('modelSelect');
+
+    sendButton.addEventListener('click', handleExecution);
+    messageEntry.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleExecution(); });
+
+    modelSelect.addEventListener('change', () => {
+      activePipeline = null;
+      loadedModelId = null;
+      appendStatus(`Model switched to official repository: ${modelSelect.value}`);
+    });
+
+    async function handleExecution() {
+      const promptText = messageEntry.value.trim();
+      if (!promptText) return;
+
+      const selectedModel = modelSelect.value;
+      
+      appendMessage('You', promptText, 'msg-user-header');
+      messageEntry.value = '';
+
+      const aiHeaderSpan = document.createElement('div');
+      aiHeaderSpan.className = 'msg-ai-header';
+      aiHeaderSpan.textContent = 'Official WebGPU Pipeline ';
+
+      const statusSpan = document.createElement('span');
+      statusSpan.className = 'msg-status';
+      statusSpan.textContent = '(Initializing official model weights...)';
+      aiHeaderSpan.appendChild(statusSpan);
+
+      chatDisplay.appendChild(aiHeaderSpan);
+      scrollToBottom();
+
+      const startTime = performance.now();
+
+      try {
+        let task = "text-generation";
+        if (selectedModel.includes('whisper')) task = "automatic-speech-recognition";
+
+        if (!activePipeline || loadedModelId !== selectedModel) {
+          statusSpan.textContent = `(Fetching weights directly from ${selectedModel}...)`;
+          
+          // Loads directly from official Hugging Face org repos
+          activePipeline = await pipeline(task, selectedModel, {
+            device: 'webgpu',
+            dtype: task === 'text-generation' ? 'q4' : 'fp32'
+          });
+          
+          loadedModelId = selectedModel;
+        }
+
+        statusSpan.textContent = '(Running WebGPU inference...)';
+
+        let outputText = "";
+
+        if (task === "text-generation") {
+          const messages = [{ role: "user", content: promptText }];
+          const result = await activePipeline(messages, { max_new_tokens: 128 });
+          outputText = result[0].generated_text.at(-1).content || JSON.stringify(result);
+        } else {
+          const result = await activePipeline(promptText);
+          outputText = typeof result === 'object' ? JSON.stringify(result, null, 2) : result;
+        }
+
+        const elapsedSeconds = ((performance.now() - startTime) / 1000).toFixed(2);
+        statusSpan.textContent = `(${elapsedSeconds}s WebGPU)`;
+
+        const aiResponseBody = document.createElement('div');
+        aiResponseBody.className = 'msg-body';
+        aiResponseBody.textContent = outputText;
+        chatDisplay.appendChild(aiResponseBody);
+
+      } catch (err) {
+        const elapsedSeconds = ((performance.now() - startTime) / 1000).toFixed(2);
+        statusSpan.textContent = `(${elapsedSeconds}s)`;
+
+        const errorBody = document.createElement('div');
+        errorBody.className = 'msg-body';
+        errorBody.textContent = `Error loading ${selectedModel}: ${err.message}`;
+        chatDisplay.appendChild(errorBody);
+      }
+
+      scrollToBottom();
+    }
+
+    function appendMessage(sender, text, className) {
+      const header = document.createElement('div');
+      header.className = className;
+      header.textContent = sender;
+
+      const body = document.createElement('div');
+      body.className = 'msg-body';
+      body.textContent = text;
+
+      chatDisplay.appendChild(header);
+      chatDisplay.appendChild(body);
+      scrollToBottom();
+    }
+
+    function appendStatus(text) {
+      const div = document.createElement('div');
+      div.className = 'msg-status';
+      div.style.textAlign = 'center';
+      div.style.margin = '10px 0';
+      div.textContent = text;
+      chatDisplay.appendChild(div);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      chatDisplay.scrollTop = chatDisplay.scrollHeight;
+    }
+  </script>
+</body>
+</html>
