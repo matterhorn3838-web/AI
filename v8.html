@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local AI Studio Multi-Modal | WebGPU</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
+
+        :root {
+            --bg-color: #f0f4f9;
+            --container-bg: #ffffff;
+            --user-msg: #d3e3fd;
+            --ai-msg: #ffffff;
+            --text-main: #1f1f1f;
+            --text-muted: #444746;
+            --accent: #0b57d0;
+            --border: #dadce0;
+            --search-accent: #34a853;
+            --think-bg: #f1f3f4;
+            --think-border: #ab47bc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 20px;
+        }
+
+        /* --- Header & Tabs --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: var(--container-bg);
+            border-radius: 24px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, #1a73e8, #8ab4f8, #ea4335);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 5px;
+            background: var(--bg-color);
+            padding: 5px;
+            border-radius: 16px;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--container-bg);
+            color: var(--accent);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* --- Main Content Area --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            gap: 20px;
+        }
+
+        .tab-panel {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .tab-panel.active { display: flex; }
+
+        /* --- Global Controls & Status --- */
+        .status-bar {
+            background: var(--container-bg);
+            padding: 15px 20px;
+            border-radius: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #status-text { font-size: 0.9rem; color: var(--text-muted); }
+
+        .control-group { display: flex; gap: 10px; align-items: center; }
+
+        select, button.action-btn {
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            outline: none;
+            background: var(--container-bg);
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        optgroup { font-weight: 600; }
+
+        button.action-btn {
+            background-color: var(--accent);
+            color: white;
+            font-weight: 600;
+            border: none;
+            transition: opacity 0.2s;
+        }
+
+        button.action-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        button.action-btn:hover:not(:disabled) { opacity: 0.85; }
+
+        /* --- Panel: Chat --- */
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--container-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 14px 20px;
+            border-radius: 24px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .message.system { align-self: center; background: transparent; color: var(--text-muted); font-size: 0.9rem; font-style: italic; text-align: center; }
+        .message.user { align-self: flex-end; background-color: var(--user-msg); border-bottom-right-radius: 4px; }
+        .message.assistant { align-self: flex-start; background-color: var(--ai-msg); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+
+        /* DeepThink Box Styling */
+        .think-block {
+            background: var(--think-bg);
+            border-left: 4px solid var(--think-border);
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .think-block summary {
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--think-border);
+            margin-bottom: 6px;
+        }
+
+        /* Feature Toggles Container */
+        .input-area { padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        
+        .chat-options-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .option-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .option-toggle input[type="checkbox"] {
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slider-group input[type="range"] {
+            width: 80px;
+            accent-color: var(--accent);
+        }
+
+        .input-wrapper { display: flex; background: var(--container-bg); border-radius: 32px; padding: 10px 16px; border: 1px solid var(--border); align-items: center; }
+
+        textarea { flex: 1; border: none; outline: none; resize: none; padding: 10px; font-size: 1rem; font-family: inherit; background: transparent; max-height: 150px; color: var(--text-main); }
+        textarea:disabled { color: #999; }
+
+        #send-btn, #generate-img-btn, #generate-audio-btn {
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+            color: var(--accent);
+            border: none;
+            cursor: pointer;
+        }
+        
+        #send-btn:not(:disabled), .gen-btn:not(:disabled) { background-color: var(--accent); color: white; }
+
+        /* --- Panel: Image & Audio --- */
+        .generation-display {
+            flex: 1;
+            background: var(--container-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        #image-output {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        #audio-output { display: none; width: 100%; max-width: 400px; }
+
+        .transcription-box {
+            width: 100%;
+            height: 100%;
+            padding: 15px;
+            background: var(--bg-color);
+            border-radius: 12px;
+            font-size: 1rem;
+            color: var(--text-main);
+            overflow-y: auto;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .file-upload-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .file-upload-box input[type="file"] {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .placeholder-text { color: var(--text-muted); text-align: center; font-style: italic; }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="header">
+            <h1>Local AI Studio</h1>
+            <div class="tab-bar">
+                <button class="tab-btn active" data-tab="tab-chat">Chat</button>
+                <button class="tab-btn" data-tab="tab-image">Image</button>
+                <button class="tab-btn" data-tab="tab-audio">Audio</button>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="status-text">Status: Select task and load model.</span>
+            <div class="control-group">
+                <select id="model-selector"></select>
+                <button class="action-btn" id="load-model-btn">Load Model</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            
+            <div class="tab-panel active" id="tab-chat">
+                <div class="chat-box" id="chat-box">
+                    <div class="message system">Multi-turn local chat with DuckDuckGo Grounding, DeepThink Reasoning, & Creative Mode.</div>
+                </div>
+                
+                <div class="input-area">
+                    <div class="chat-options-bar">
+                        <label class="option-toggle">
+                            <input type="checkbox" id="ddg-search-checkbox" checked>
+                            <span>🦆 DuckDuckGo Search</span>
+                        </label>
+
+                        <label class="option-toggle">
+                            <input type="checkbox" id="deepthink-checkbox">
+                            <span>🧠 DeepThink Mode</span>
+                        </label>
+
+                        <label class="option-toggle">
+                            <input type="checkbox" id="creative-checkbox">
+                            <span>🎨 Creative Mode</span>
+                        </label>
+
+                        <div class="slider-group">
+                            <span>Temp: <strong id="temp-val">0.7</strong></span>
+                            <input type="range" id="temp-slider" min="0.1" max="1.2" step="0.1" value="0.7">
+                        </div>
+                    </div>
+
+                    <div class="input-wrapper">
+                        <textarea id="chat-input" placeholder="Type message..." rows="1" disabled></textarea>
+                        <button id="send-btn" disabled>➤</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-panel" id="tab-image">
+                <div class="generation-display">
+                    <p class="placeholder-text" id="image-placeholder">Generated image will appear here.</p>
+                    <img id="image-output" alt="Generated visual">
+                </div>
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <textarea id="image-prompt" placeholder="Describe the image you want..." rows="2" disabled></textarea>
+                        <button id="generate-img-btn" class="gen-btn" disabled>✎</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-panel" id="tab-audio">
+                <div class="generation-display">
+                    <p class="placeholder-text" id="audio-placeholder">Audio result will appear here.</p>
+                    <audio id="audio-output" controls></audio>
+                    <div id="audio-transcription" class="transcription-box"></div>
+                </div>
+                <div class="input-area">
+                    <div class="file-upload-box" id="audio-file-box" style="display: none;">
+                        <label for="audio-file-input"><strong>Select Audio File:</strong></label>
+                        <input type="file" id="audio-file-input" accept="audio/*" disabled>
+                    </div>
+
+                    <div class="input-wrapper">
+                        <textarea id="audio-text" placeholder="Text to generate into speech..." rows="2" disabled></textarea>
+                        <button id="generate-audio-btn" class="gen-btn" disabled>🎧</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="module">
+        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers';
+
+        // --- Catalog of 33 Sub-8B Models ---
+        const modelsConfig = {
+            'tab-chat': {
+                task: 'text-generation',
+                options: { device: 'webgpu', dtype: 'q4f16' },
+                groups: [
+                    {
+                        company: 'DeepSeek',
+                        models: [
+                            { id: 'onnx-community/DeepSeek-R1-Distill-Qwen-1.5B-ONNX', name: 'DeepSeek R1 Distill (1.5B)' },
+                            { id: 'onnx-community/DeepSeek-R1-Distill-Qwen-7B-ONNX', name: 'DeepSeek R1 Distill (7B)' },
+                            { id: 'onnx-community/DeepSeek-R1-Distill-Llama-8B-ONNX', name: 'DeepSeek R1 Distill (8B)' }
+                        ]
+                    },
+                    {
+                        company: 'Microsoft',
+                        models: [
+                            { id: 'onnx-community/Phi-3.5-mini-instruct-onnx-web', name: 'Phi-3.5 Mini Instruct (3.8B)' },
+                            { id: 'onnx-community/Phi-3-mini-4k-instruct-onnx-web', name: 'Phi-3 Mini 4K (3.8B)' }
+                        ]
+                    },
+                    {
+                        company: 'Meta (Llama)',
+                        models: [
+                            { id: 'onnx-community/Llama-3.2-1B-Instruct-q4f16', name: 'Llama 3.2 (1B)' },
+                            { id: 'onnx-community/Llama-3.2-3B-Instruct-q4f16', name: 'Llama 3.2 (3B)' },
+                            { id: 'onnx-community/Llama-3.1-8B-Instruct-q4f16', name: 'Llama 3.1 (8B)' }
+                        ]
+                    },
+                    {
+                        company: 'Google',
+                        models: [
+                            { id: 'onnx-community/gemma-2-2b-it-q4f16', name: 'Gemma 2 (2B)' },
+                            { id: 'onnx-community/gemma-2b-it-q4f16', name: 'Gemma 1 (2B)' }
+                        ]
+                    },
+                    {
+                        company: 'Qwen (Alibaba)',
+                        models: [
+                            { id: 'onnx-community/Qwen2.5-0.5B-Instruct-q4f16', name: 'Qwen 2.5 (0.5B)' },
+                            { id: 'onnx-community/Qwen2.5-1.5B-Instruct-q4f16', name: 'Qwen 2.5 (1.5B)' },
+                            { id: 'onnx-community/Qwen2.5-3B-Instruct-q4f16', name: 'Qwen 2.5 (3B)' },
+                            { id: 'onnx-community/Qwen2.5-7B-Instruct-q4f16', name: 'Qwen 2.5 (7B)' },
+                            { id: 'onnx-community/Qwen2.5-Coder-1.5B-Instruct-q4f16', name: 'Qwen 2.5 Coder (1.5B)' },
+                            { id: 'onnx-community/Qwen2.5-Coder-7B-Instruct-q4f16', name: 'Qwen 2.5 Coder (7B)' }
+                        ]
+                    },
+                    {
+                        company: 'IBM',
+                        models: [
+                            { id: 'onnx-community/granite-4.0-1b-ONNX-web', name: 'Granite 4.0 (1B)' },
+                            { id: 'onnx-community/granite-3.0-2b-instruct-ONNX', name: 'Granite 3.0 (2B)' },
+                            { id: 'onnx-community/granite-3.0-8b-instruct-ONNX', name: 'Granite 3.0 (8B)' }
+                        ]
+                    },
+                    {
+                        company: 'Apple',
+                        models: [
+                            { id: 'onnx-community/OpenELM-1_1B-Instruct', name: 'OpenELM (1.1B)' },
+                            { id: 'onnx-community/OpenELM-3B-Instruct', name: 'OpenELM (3B)' }
+                        ]
+                    },
+                    {
+                        company: 'Mistral AI',
+                        models: [
+                            { id: 'onnx-community/Mistral-7B-Instruct-v0.3-ONNX', name: 'Mistral 7B Instruct v0.3' },
+                            { id: 'onnx-community/Ministral-8B-Instruct-2410-ONNX', name: 'Ministral (8B)' }
+                        ]
+                    },
+                    {
+                        company: 'OpenAI',
+                        models: [
+                            { id: 'Xenova/gpt2', name: 'GPT-2 Base (124M)' },
+                            { id: 'Xenova/gpt2-medium', name: 'GPT-2 Medium (355M)' }
+                        ]
+                    }
+                ]
+            },
+            'tab-image': {
+                task: 'text-to-image',
+                options: { device: 'webgpu', dtype: 'q4' }, 
+                groups: [
+                    {
+                        company: 'Stability AI',
+                        models: [
+                            { id: 'onnx-community/sd-turbo-ONNX', name: 'SD-Turbo (Real-time Diffusion)' },
+                            { id: 'Xenova/stable-diffusion-v1-5', name: 'Stable Diffusion v1.5' }
+                        ]
+                    }
+                ]
+            },
+            'tab-audio': {
+                groups: [
+                    {
+                        company: 'OpenAI (Speech-to-Text)',
+                        models: [
+                            { id: 'Xenova/whisper-tiny', name: 'Whisper Tiny (ASR)', task: 'automatic-speech-recognition' },
+                            { id: 'Xenova/whisper-base', name: 'Whisper Base (ASR)', task: 'automatic-speech-recognition' },
+                            { id: 'Xenova/whisper-small', name: 'Whisper Small (ASR)', task: 'automatic-speech-recognition' }
+                        ]
+                    },
+                    {
+                        company: 'Moonshot AI (Speech-to-Text)',
+                        models: [
+                            { id: 'onnx-community/moonshine-tiny-ONNX', name: 'Moonshine Tiny (ASR)', task: 'automatic-speech-recognition' },
+                            { id: 'onnx-community/moonshine-base-ONNX', name: 'Moonshine Base (ASR)', task: 'automatic-speech-recognition' }
+                        ]
+                    },
+                    {
+                        company: 'Microsoft (Text-to-Speech)',
+                        models: [
+                            { id: 'Xenova/speecht5_tts', name: 'SpeechT5 TTS', task: 'text-to-speech' }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        // --- Helper: WAV Audio Encoder for TTS Output ---
+        function pcmToWavBlob(pcmData, sampleRate = 16000) {
+            const buffer = new ArrayBuffer(44 + pcmData.length * 2);
+            const view = new DataView(buffer);
+
+            const writeString = (offset, str) => {
+                for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+            };
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + pcmData.length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, pcmData.length * 2, true);
+
+            let offset = 44;
+            for (let i = 0; i < pcmData.length; i++, offset += 2) {
+                const s = Math.max(-1, Math.min(1, pcmData[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        // --- Helper: Read Uploaded Audio File to 16kHz PCM Array ---
+        async function readAudioFileTo16kPCM(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+            return decoded.getChannelData(0);
+        }
+
+        // --- UI State & Elements ---
+        let currentActiveTab = 'tab-chat';
+        let pipelines = { 'tab-chat': null, 'tab-image': null, 'tab-audio': null };
+        let chatMessages = []; 
+
+        const statusText = document.getElementById('status-text');
+        const modelSelector = document.getElementById('model-selector');
+        const loadModelBtn = document.getElementById('load-model-btn');
+        
+        // Chat Controls
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const ddgCheckbox = document.getElementById('ddg-search-checkbox');
+        const deepthinkCheckbox = document.getElementById('deepthink-checkbox');
+        const creativeCheckbox = document.getElementById('creative-checkbox');
+        const tempSlider = document.getElementById('temp-slider');
+        const tempVal = document.getElementById('temp-val');
+
+        // Image Controls
+        const imagePrompt = document.getElementById('image-prompt');
+        const genImgBtn = document.getElementById('generate-img-btn');
+        const imgOut = document.getElementById('image-output');
+        const imgPlaceholder = document.getElementById('image-placeholder');
+
+        // Audio Controls
+        const audioText = document.getElementById('audio-text');
+        const audioFileInput = document.getElementById('audio-file-input');
+        const audioFileBox = document.getElementById('audio-file-box');
+        const genAudioBtn = document.getElementById('generate-audio-btn');
+        const audioOut = document.getElementById('audio-output');
+        const audioTranscription = document.getElementById('audio-transcription');
+        const audioPlaceholder = document.getElementById('audio-placeholder');
+
+        // Slider Sync
+        tempSlider.addEventListener('input', (e) => { tempVal.textContent = e.target.value; });
+
+        creativeCheckbox.addEventListener('change', (e) => {
+            tempSlider.value = e.target.checked ? '0.9' : '0.7';
+            tempVal.textContent = tempSlider.value;
+        });
+
+        // Initialize Selector
+        updateModelSelector('tab-chat');
+
+        // --- Tab Navigation ---
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelector('.tab-btn.active').classList.remove('active');
+                btn.classList.add('active');
+
+                currentActiveTab = btn.getAttribute('data-tab');
+                document.querySelector('.tab-panel.active').classList.remove('active');
+                document.getElementById(currentActiveTab).classList.add('active');
+
+                updateModelSelector(currentActiveTab);
+                updateStatus();
+            });
+        });
+
+        function updateModelSelector(tabId) {
+            modelSelector.innerHTML = '';
+            const config = modelsConfig[tabId];
+            
+            config.groups.forEach(group => {
+                const optGroup = document.createElement('optgroup');
+                optGroup.label = group.company;
+                group.models.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m.id;
+                    option.textContent = m.name;
+                    if (m.task) option.setAttribute('data-task', m.task);
+                    optGroup.appendChild(option);
+                });
+                modelSelector.appendChild(optGroup);
+            });
+
+            if (tabId === 'tab-audio') updateAudioUI();
+
+            loadModelBtn.disabled = !!pipelines[tabId]; 
+            loadModelBtn.textContent = pipelines[tabId] ? "Loaded" : "Load Model";
+        }
+
+        modelSelector.addEventListener('change', () => {
+            if (currentActiveTab === 'tab-audio') updateAudioUI();
+        });
+
+        function updateAudioUI() {
+            const selectedOpt = modelSelector.options[modelSelector.selectedIndex];
+            const task = selectedOpt ? selectedOpt.getAttribute('data-task') : 'text-to-speech';
+
+            if (task === 'automatic-speech-recognition') {
+                audioFileBox.style.display = 'flex';
+                audioText.style.display = 'none';
+                genAudioBtn.textContent = '📝';
+                genAudioBtn.title = 'Transcribe Audio';
+            } else {
+                audioFileBox.style.display = 'none';
+                audioText.style.display = 'block';
+                genAudioBtn.textContent = '🎧';
+                genAudioBtn.title = 'Synthesize Speech';
+            }
+        }
+
+        function updateStatus() {
+            if (pipelines[currentActiveTab]) {
+                statusText.textContent = `Status: Model ready on WebGPU.`;
+                toggleInputs(currentActiveTab, true);
+            } else {
+                statusText.textContent = `Status: Select and load a model.`;
+                toggleInputs(currentActiveTab, false);
+            }
+        }
+
+        function toggleInputs(tabId, enabled) {
+            if (tabId === 'tab-chat') { chatInput.disabled = !enabled; sendBtn.disabled = !enabled; }
+            if (tabId === 'tab-image') { imagePrompt.disabled = !enabled; genImgBtn.disabled = !enabled; }
+            if (tabId === 'tab-audio') {
+                audioText.disabled = !enabled;
+                audioFileInput.disabled = !enabled;
+                genAudioBtn.disabled = !enabled;
+            }
+        }
+
+        // --- Model Loader ---
+        loadModelBtn.addEventListener('click', async () => {
+            const modelId = modelSelector.value;
+            const selectedOpt = modelSelector.options[modelSelector.selectedIndex];
+            
+            let task = modelsConfig[currentActiveTab].task;
+            if (currentActiveTab === 'tab-audio' && selectedOpt.getAttribute('data-task')) {
+                task = selectedOpt.getAttribute('data-task');
+            }
+
+            const options = modelsConfig[currentActiveTab].options || { device: 'webgpu' };
+            
+            loadModelBtn.disabled = true;
+            loadModelBtn.textContent = "Loading...";
+            statusText.textContent = `Status: Downloading & compiling ${modelId}...`;
+
+            try {
+                pipelines[currentActiveTab] = await pipeline(task, modelId, options);
+                pipelines[currentActiveTab].loadedTask = task; // Tag task on loaded pipeline
+                loadModelBtn.textContent = "Loaded";
+                updateStatus();
+            } catch (err) {
+                console.error(err);
+                statusText.textContent = `Error: ${err.message}. Ensure WebGPU is supported.`;
+                loadModelBtn.disabled = false;
+                loadModelBtn.textContent = "Retry Load";
+            }
+        });
+
+        // --- DUCKDUCKGO SEARCH API GROUNDING ---
+        async function fetchDuckDuckGoSearch(query) {
+            try {
+                const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                let results = [];
+                if (data.AbstractText) results.push(`[DuckDuckGo Abstract] ${data.AbstractText}`);
+                if (data.RelatedTopics && Array.isArray(data.RelatedTopics)) {
+                    data.RelatedTopics.slice(0, 3).forEach(topic => {
+                        if (topic.Text) results.push(`[DuckDuckGo Result] ${topic.Text}`);
+                    });
+                }
+                return results.length > 0 ? results.join('\n\n') : null;
+            } catch (e) {
+                console.warn('DuckDuckGo Search fetch error:', e);
+                return null;
+            }
+        }
+
+        // --- Chat Handler ---
+        const chatBox = document.getElementById('chat-box');
+
+        function appendChatMessage(role, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}`;
+            
+            if (role === 'assistant' && text.includes('<think>')) {
+                const parts = text.split('</think>');
+                if (parts.length > 1) {
+                    const thinkContent = parts[0].replace('<think>', '').trim();
+                    const finalAnswer = parts[1].trim();
+
+                    msgDiv.innerHTML = `
+                        <details class="think-block" open>
+                            <summary>🧠 Thought Process (DeepThink)</summary>
+                            <div>${thinkContent.replace(/\n/g, '<br>')}</div>
+                        </details>
+                        <div>${finalAnswer.replace(/\n/g, '<br>')}</div>
+                    `;
+                } else {
+                    msgDiv.textContent = text;
+                }
+            } else {
+                msgDiv.textContent = text;
+            }
+
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return msgDiv;
+        }
+
+        async function handleChat() {
+            const text = chatInput.value.trim();
+            const generator = pipelines['tab-chat'];
+            if (!text || !generator) return;
+
+            appendChatMessage('user', text);
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            sendBtn.disabled = true;
+            chatInput.disabled = true;
+
+            let promptToFeed = text;
+
+            if (ddgCheckbox.checked) {
+                statusText.textContent = "Status: Searching DuckDuckGo...";
+                const ddgContext = await fetchDuckDuckGoSearch(text);
+                
+                if (ddgContext) {
+                    promptToFeed = `Context from DuckDuckGo Web Search:\n${ddgContext}\n\nUser Question: ${text}\n\nAnswer the user accurately using the DuckDuckGo search context above.`;
+                    appendChatMessage('system', `🦆 DuckDuckGo Context Found:\n"${ddgContext}"`);
+                } else {
+                    appendChatMessage('system', `🦆 DuckDuckGo Search: No direct instant answers found.`);
+                }
+            }
+
+            if (deepthinkCheckbox.checked) {
+                promptToFeed = `[System Directive: Think step-by-step. First write out your full reasoning inside <think>...</think> tags, then present your final answer after the thinking block.]\n\n${promptToFeed}`;
+            }
+
+            if (creativeCheckbox.checked) {
+                promptToFeed = `[System Directive: Be highly creative, vivid, and imaginative in your response.]\n\n${promptToFeed}`;
+            }
+
+            chatMessages.push({ role: 'user', content: promptToFeed });
+            statusText.textContent = "Status: Local AI model generating answer...";
+
+            const aiBubble = appendChatMessage('assistant', "Thinking...");
+
+            try {
+                const selectedTemp = parseFloat(tempSlider.value);
+                
+                const output = await generator(chatMessages, {
+                    max_new_tokens: deepthinkCheckbox.checked ? 1024 : 512,
+                    temperature: selectedTemp,
+                    top_p: creativeCheckbox.checked ? 0.95 : 0.9,
+                    do_sample: true
+                });
+                
+                const generatedMessages = output[0].generated_text;
+                const assistantReply = generatedMessages[generatedMessages.length - 1].content;
+                
+                aiBubble.remove();
+                appendChatMessage('assistant', assistantReply);
+                chatMessages.push({ role: 'assistant', content: assistantReply });
+                statusText.textContent = "Status: Ready.";
+            } catch (err) {
+                aiBubble.textContent = `Error: ${err.message}`;
+            }
+
+            sendBtn.disabled = false;
+            chatInput.disabled = false;
+            chatInput.focus();
+        }
+
+        sendBtn.addEventListener('click', handleChat);
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChat(); } });
+
+        // --- Image Handler ---
+        genImgBtn.addEventListener('click', async () => {
+            const prompt = imagePrompt.value.trim();
+            const generationPipeline = pipelines['tab-image'];
+            if (!prompt || !generationPipeline) return;
+
+            genImgBtn.disabled = true;
+            imagePrompt.disabled = true;
+            imgOut.style.display = 'none';
+            imgPlaceholder.style.display = 'block';
+            imgPlaceholder.textContent = "Rendering image via WebGPU...";
+            statusText.textContent = "Status: Rendering pixels...";
+
+            try {
+                const result = await generationPipeline(prompt, {
+                    num_inference_steps: 1,
+                    guidance_scale: 0.0
+                });
+
+                if (result && result.images && result.images[0]) {
+                    const rawImg = result.images[0];
+                    if (typeof rawImg.toCanvas === 'function') {
+                        imgOut.src = rawImg.toCanvas().toDataURL();
+                    } else if (typeof rawImg.toDataURL === 'function') {
+                        imgOut.src = rawImg.toDataURL();
+                    }
+                    imgPlaceholder.style.display = 'none';
+                    imgOut.style.display = 'block';
+                    statusText.textContent = "Status: Image generated successfully.";
+                }
+            } catch (err) {
+                imgPlaceholder.textContent = `Error: ${err.message}`;
+                console.error(err);
+            }
+
+            genImgBtn.disabled = false;
+            imagePrompt.disabled = false;
+        });
+
+        // --- Audio Handler (Supports both STT Transcribe & TTS Synthesize) ---
+        const speaker_embeddings = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
+
+        genAudioBtn.addEventListener('click', async () => {
+            const pipe = pipelines['tab-audio'];
+            if (!pipe) return;
+
+            const task = pipe.loadedTask || 'text-to-speech';
+
+            genAudioBtn.disabled = true;
+            audioText.disabled = true;
+            audioFileInput.disabled = true;
+            audioOut.style.display = 'none';
+            audioTranscription.style.display = 'none';
+            audioPlaceholder.style.display = 'block';
+
+            try {
+                if (task === 'automatic-speech-recognition') {
+                    // Speech-to-Text Transcribe Mode
+                    const file = audioFileInput.files[0];
+                    if (!file) {
+                        alert("Please select an audio file first.");
+                        genAudioBtn.disabled = false;
+                        audioFileInput.disabled = false;
+                        return;
+                    }
+
+                    audioPlaceholder.textContent = "Decoding audio file & transcribing text...";
+                    statusText.textContent = "Status: Transcribing audio...";
+
+                    const pcmData = await readAudioFileTo16kPCM(file);
+                    const result = await pipe(pcmData);
+
+                    audioTranscription.textContent = result.text || "No transcription output.";
+                    audioPlaceholder.style.display = 'none';
+                    audioTranscription.style.display = 'block';
+                    statusText.textContent = "Status: Audio transcription complete.";
+
+                } else {
+                    // Text-to-Speech Synthesize Mode
+                    const textInput = audioText.value.trim();
+                    if (!textInput) {
+                        alert("Please enter text to synthesize.");
+                        genAudioBtn.disabled = false;
+                        audioText.disabled = false;
+                        return;
+                    }
+
+                    audioPlaceholder.textContent = "Synthesizing voice waveform...";
+                    statusText.textContent = "Status: Generating speech...";
+
+                    const result = await pipe(textInput, { speaker_embeddings });
+                    const wavBlob = pcmToWavBlob(result.audio, result.sampling_rate || 16000);
+
+                    audioOut.src = URL.createObjectURL(wavBlob);
+                    audioPlaceholder.style.display = 'none';
+                    audioOut.style.display = 'block';
+                    audioOut.play();
+                    statusText.textContent = "Status: Audio generation complete.";
+                }
+            } catch (err) {
+                audioPlaceholder.textContent = `Error: ${err.message}`;
+                console.error(err);
+            }
+
+            genAudioBtn.disabled = false;
+            audioText.disabled = false;
+            audioFileInput.disabled = false;
+        });
+
+        // Auto-resize Textareas
+        document.querySelectorAll('textarea').forEach(ta => {
+            ta.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        });
+    </script>
+</body>
+</html>
